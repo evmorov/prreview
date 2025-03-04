@@ -2,8 +2,6 @@ class PrReview
   def initialize
     @pr_url = ARGV[0]
     raise "No Github URL is provided" if @pr_url.nil? || @pr_url.empty?
-
-    @additional_info = ARGV[1]
   end
 
   def run
