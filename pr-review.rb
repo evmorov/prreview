@@ -9,13 +9,13 @@ class PrReview
 
     prompt << @pr_url
 
-    readme = `gh repo view #{repo_url}`
+    readme = request_gh("gh repo view #{repo_url}")
     prompt << wrap_content('README.md', remove_markdown(readme))
 
-    details = `gh pr view #{@pr_url}`
+    details = request_gh("gh pr view #{@pr_url}")
     prompt << wrap_content('PR description', remove_markdown(details))
 
-    diff = `gh pr diff #{@pr_url}`
+    diff = request_gh("gh pr diff #{@pr_url}")
     prompt << wrap_content('PR diff', diff)
 
     prompt << files
@@ -38,10 +38,10 @@ class PrReview
 
   def files
     result = []
-    file_paths = `gh pr diff --name-only #{@pr_url}`
+    file_paths = request_gh("gh pr diff --name-only #{@pr_url}")
 
     file_paths.split("\n").each do |file_path|
-      content = `gh api #{repo_api_path}/#{file_path} | jq -r '.content' | base64 --decode`
+      content = request_gh("gh api #{repo_api_path}/#{file_path} | jq -r '.content' | base64 --decode")
       result << wrap_content(file_path, content)
     end
 
@@ -56,6 +56,11 @@ class PrReview
     r << "```"
     r << content
     r << "```"
+  end
+
+  def request_gh(cmd)
+    puts cmd
+    `#{cmd}`
   end
 
   def remove_markdown(content)
