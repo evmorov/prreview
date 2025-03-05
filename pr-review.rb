@@ -14,13 +14,13 @@ class PrReview
     readme = request_gh("gh repo view #{repo_url}")
     prompt << wrap_content('README.md', remove_markdown(readme))
 
-    details = request_gh("gh pr view #{@pr_url}")
-    prompt << wrap_content('PR description', remove_markdown(details))
+    details_with_comments = request_gh("gh pr view --comments #{@pr_url}")
+    prompt << wrap_content('PR description and comments', remove_markdown(details_with_comments))
+
+    prompt << files
 
     diff = request_gh("gh pr diff #{@pr_url}")
     prompt << wrap_content('PR diff', diff)
-
-    prompt << files
 
     task = "Check the PR. Do you see any problems there?"
     prompt << wrap_content('Your task', task)
