@@ -1,3 +1,5 @@
+require 'open3'
+
 class PrReview
   def initialize
     @pr_url = ARGV[0]
@@ -42,6 +44,8 @@ class PrReview
 
     file_paths.split("\n").each do |file_path|
       content = request_gh("gh api #{repo_api_path}/#{file_path} | jq -r '.content' | base64 --decode")
+      next unless content
+
       result << wrap_content(file_path, content)
     end
 
@@ -60,7 +64,14 @@ class PrReview
 
   def request_gh(cmd)
     puts cmd
-    `#{cmd}`
+    stdout, stderr, status = Open3.capture3(cmd)
+
+    unless stderr.empty?
+      puts stderr
+      return
+    end
+
+    stdout
   end
 
   def remove_markdown(content)
