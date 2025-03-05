@@ -30,16 +30,12 @@ class PrReview
 
   private
 
-  def repo_url
-    @repo_url ||= @pr_url.split('/pull')[0]
-  end
-
   def files
     result = []
     file_paths = request_gh("gh pr diff --name-only #{@pr_url}")
 
     file_paths.split("\n").each do |file_path|
-      content = request_gh("gh api #{api_contents_path}/#{file_path} | jq -r '.content' | base64 --decode")
+      content = request_gh("gh api #{api_contents_path}/#{file_path}?ref=#{branch} | jq -r '.content' | base64 --decode")
       next unless content
 
       result << wrap_content(file_path, content)
@@ -50,6 +46,14 @@ class PrReview
 
   def api_contents_path
     @api_contents_path ||= "repos/#{repo_url.split('github.com/')[1]}/contents"
+  end
+
+  def repo_url
+    @repo_url ||= @pr_url.split('/pull')[0]
+  end
+
+  def branch
+    @branch ||= request_gh("gh pr view #{@pr_url} --json headRefName -q .headRefName").strip
   end
 
   def wrap_content(file_name, content)
