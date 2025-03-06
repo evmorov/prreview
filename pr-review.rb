@@ -17,6 +17,9 @@ class PrReview
     details_with_comments = request_gh("gh pr view --comments #{@pr_url}")
     prompt << wrap_content('PR description and comments', remove_markdown(details_with_comments))
 
+    commits = request_gh(%{gh pr view --json commits #{@pr_url} | jq -r '.commits[] | "\\(.authors[0].name) (\\(.authors[0].login)) – \\(.messageHeadline)"'})
+    prompt << wrap_content('PR commits', commits)
+
     prompt << files
 
     diff = request_gh("gh pr diff #{@pr_url}")
