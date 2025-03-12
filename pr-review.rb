@@ -101,10 +101,10 @@ class PrReview
     result
   end
 
-  def wrap_content(file_name, content)
+  def wrap_content(title, content)
     r = []
     r << "\n"
-    r << "=========== #{file_name} ==========="
+    r << "=========== #{title} ==========="
     r << "\n"
     r << content
   end
