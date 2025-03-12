@@ -34,11 +34,6 @@ class PrReview
 
   private
 
-  # repos/evmorov/pr-review-llm/contents/
-  def api_contents_path
-    @api_contents_path ||= "repos/#{repo_url.split('github.com/')[1]}/contents"
-  end
-
   # https://github.com/evmorov/pr-review-llm
   def repo_url
     @repo_url ||= @pr_url.split('/pull')[0]
@@ -51,6 +46,11 @@ class PrReview
   # evmorov
   def owner
     @owner ||= repo_url.split('github.com/')[1].split('/')[0]
+  end
+
+  # might be evmorov, but might be someone else if it's a fork
+  def author
+    @author ||= request_gh("gh pr view --json author #{@pr_url} | jq -r '.author.login'").strip
   end
 
   # pr-review-llm
@@ -115,6 +115,7 @@ class PrReview
   def updated_files
     result = []
     file_paths = request_gh("gh pr diff --name-only #{@pr_url}")
+    api_contents_path = "repos/#{author}/#{repo}/contents"
 
     file_paths.split("\n").each do |file_path|
       content = request_gh(%(
