@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 require 'open3'
 
 class PrReview
   # https://github.com/evmorov/pr-review-llm/pull/123
   def initialize
     @pr_url = ARGV[0]
-    raise "No Github URL is provided" if @pr_url.nil? || @pr_url.empty?
+    raise 'No Github URL is provided' if @pr_url.nil? || @pr_url.empty?
   end
 
   def run
@@ -25,7 +27,7 @@ class PrReview
     diff = request_gh("gh pr diff #{@pr_url}")
     prompt << wrap_content('PR diff', diff)
 
-    task = "Check the PR. Do you see any problems there?"
+    task = 'Check the PR. Do you see any problems there?'
     prompt << wrap_content('Your task', task)
 
     IO.popen('pbcopy', 'w') { |io| io.puts(prompt) }
@@ -49,12 +51,12 @@ class PrReview
 
   # evmorov
   def owner
-    @owner ||= repo_url.split('github.com/')[1].split("/")[0]
+    @owner ||= repo_url.split('github.com/')[1].split('/')[0]
   end
 
   # pr-review-llm
   def repo
-    @repo ||= repo_url.split('github.com/')[1].split("/")[1]
+    @repo ||= repo_url.split('github.com/')[1].split('/')[1]
   end
 
   # 123
@@ -111,7 +113,7 @@ class PrReview
 
   def request_gh(cmd)
     puts cmd.delete("\n")
-    stdout, stderr, status = Open3.capture3(cmd)
+    stdout, stderr, = Open3.capture3(cmd)
 
     unless stderr.empty?
       puts stderr
