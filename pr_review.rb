@@ -63,7 +63,7 @@ class PrReview
 
   # 123
   def pr_number
-    @pr_number ||= @pr_url.split('/').last
+    @pr_number ||= @pr_url.split('pull/')[1].split('/')[0]
   end
 
   # Currently only works for issues within the same repository
