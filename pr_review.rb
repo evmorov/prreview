@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'open3'
+require 'json'
 
 class PrReview
   # https://github.com/evmorov/pr-review-llm/pull/123
@@ -13,17 +14,13 @@ class PrReview
 
   def run
     prompt = []
-
     prompt << @pr_url
 
     readme = request_gh("gh repo view #{repo_url}")
     prompt << wrap_content('README.md', readme)
 
-    details_with_comments = request_gh("gh pr view --json author,body,commits,comments #{@pr_url}")
-    prompt << wrap_content('PR description, commits and comments', details_with_comments)
-
+    prompt << details_with_comments
     prompt << linked_issues
-
     prompt << updated_files
 
     diff = request_gh("gh pr diff #{@pr_url}")
@@ -64,6 +61,20 @@ class PrReview
   # 123
   def pr_number
     @pr_number ||= @pr_url.split('pull/')[1].split('/')[0]
+  end
+
+  def details_with_comments
+    request = <<~REQ
+      gh pr view --json author,body,commits,comments #{@pr_url} |
+      jq '{
+        author: .author.login,
+        body: .body,
+        comments: [.comments[] | {author: .author.login, body: .body}],
+        commits: [.commits[] | {author: [.authors[0].login], messageHeadline: .messageHeadline, messageBody: .messageBody}]
+      }'
+    REQ
+    details_with_comments = request_gh(request)
+    wrap_content('PR description, commits and comments', pretty_json(details_with_comments))
   end
 
   # Currently only works for issues within the same repository
@@ -135,6 +146,10 @@ class PrReview
     end
 
     stdout
+  end
+
+  def pretty_json(json)
+    JSON.pretty_generate(JSON.parse(json))
   end
 end
 
