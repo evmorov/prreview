@@ -5,7 +5,7 @@ require 'open3'
 class PrReview
   # https://github.com/evmorov/pr-review-llm/pull/123
   def initialize
-    raise 'Install https://github.com/cli/cli: brew install gh' unless system("gh --version")
+    raise 'brew install gh && gh auth login' unless system('gh auth status > /dev/null')
 
     @pr_url = ARGV[0]
     raise 'No Github URL is provided' if @pr_url.nil? || @pr_url.empty?
