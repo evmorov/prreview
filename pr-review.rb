@@ -13,10 +13,10 @@ class PrReview
     prompt << @pr_url
 
     readme = request_gh("gh repo view #{repo_url}")
-    prompt << wrap_content('README.md', remove_markdown(readme))
+    prompt << wrap_content('README.md', readme)
 
     details_with_comments = request_gh("gh pr view --json author,body,commits,comments #{@pr_url}")
-    prompt << wrap_content('PR description, commits and comments', remove_markdown(details_with_comments))
+    prompt << wrap_content('PR description, commits and comments', details_with_comments)
 
     prompt << linked_issues
 
@@ -81,12 +81,8 @@ class PrReview
     REQ
     issue_numbers = request_gh(request)
     issue_numbers.split("\n").map do |issue_number|
-      issue_desc = remove_markdown(
-        request_gh(%{gh api repos/#{owner}/#{repo}/issues/#{issue_number} --jq '"Title: \\(.title)\n--\nBody:\n\n\\(.body)"'})
-      )
-      issue_comments = remove_markdown(
-        request_gh(%{gh api --paginate repos/#{owner}/#{repo}/issues/#{issue_number}/comments --jq '.[] | "\\(.user.login): \\(.body)"'})
-      )
+      issue_desc = request_gh(%{gh api repos/#{owner}/#{repo}/issues/#{issue_number} --jq '"Title: \\(.title)\n--\nBody:\n\n\\(.body)"'})
+      issue_comments = request_gh(%{gh api --paginate repos/#{owner}/#{repo}/issues/#{issue_number}/comments --jq '.[] | "\\(.user.login): \\(.body)"'})
       wrap_content("Linked issue ##{issue_number}", "#{issue_desc}\n--\nComments:\n\n#{issue_comments}")
     end
   end
@@ -108,11 +104,9 @@ class PrReview
   def wrap_content(file_name, content)
     r = []
     r << "\n"
-    r << "## #{file_name}"
+    r << "=========== #{file_name} ==========="
     r << "\n"
-    r << "```"
     r << content
-    r << "```"
   end
 
   def request_gh(cmd)
@@ -125,10 +119,6 @@ class PrReview
     end
 
     stdout
-  end
-
-  def remove_markdown(content)
-    content.delete("`").delete("#")
   end
 end
 
