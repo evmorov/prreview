@@ -81,14 +81,24 @@ class PrReview
             }
           }
         }
-      }'  --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'
+      }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'
     REQ
     issue_numbers = request_gh(request)
     issue_numbers.split("\n").map do |issue_number|
-      issue_desc = request_gh(%{gh api repos/#{owner}/#{repo}/issues/#{issue_number} --jq '"Title: \\(.title)\n--\nBody:\n\n\\(.body)"'})
-      issue_comments = request_gh(%{gh api --paginate repos/#{owner}/#{repo}/issues/#{issue_number}/comments --jq '.[] | "\\(.user.login): \\(.body)"'})
-      wrap_content("Linked issue ##{issue_number}", "#{issue_desc}\n--\nComments:\n\n#{issue_comments}")
+      linked_issue(issue_number)
     end
+  end
+
+  def linked_issue(issue_number)
+    issue_desc = request_gh(%(
+      gh api repos/#{owner}/#{repo}/issues/#{issue_number} \
+      --jq '"Title: \\(.title)\n--\nBody:\n\n\\(.body)"'
+    ).strip)
+    issue_comments = request_gh(%(
+      gh api --paginate repos/#{owner}/#{repo}/issues/#{issue_number}/comments \
+      --jq '.[] | "\\(.user.login): \\(.body)"'
+    ).strip)
+    wrap_content("Linked issue ##{issue_number}", "#{issue_desc}\n--\nComments:\n\n#{issue_comments}")
   end
 
   def updated_files
@@ -96,7 +106,9 @@ class PrReview
     file_paths = request_gh("gh pr diff --name-only #{@pr_url}")
 
     file_paths.split("\n").each do |file_path|
-      content = request_gh("gh api #{api_contents_path}/#{file_path}?ref=#{branch} | jq -r '.content' | base64 --decode")
+      content = request_gh(%(
+        gh api #{api_contents_path}/#{file_path}?ref=#{branch} | jq -r '.content' | base64 --decode
+      ).strip)
       next unless content
 
       result << wrap_content("Updated file: #{file_path}", content)
