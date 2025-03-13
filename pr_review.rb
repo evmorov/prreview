@@ -17,7 +17,7 @@ class PrReview
     prompt << @pr_url
 
     readme = request_gh("gh repo view #{repo_url}")
-    prompt << wrap_content('README.md', readme)
+    prompt << wrap_content('README.md', limit_lines(readme, 50))
 
     prompt << details_with_comments
     prompt << linked_issues
@@ -50,7 +50,9 @@ class PrReview
 
   # might be evmorov, but might be someone else if it's a fork
   def pr_owner
-    @pr_owner ||= request_gh("gh pr view --json headRepositoryOwner #{@pr_url} | jq -r '.headRepositoryOwner.login'").strip
+    @pr_owner ||= request_gh(
+      "gh pr view --json headRepositoryOwner #{@pr_url} | jq -r '.headRepositoryOwner.login'"
+    ).strip
   end
 
   # pr-review-llm
@@ -149,6 +151,12 @@ class PrReview
     end
 
     stdout
+  end
+
+  def limit_lines(content, n_lines)
+    lines = content.split("\n").take(n_lines)
+    lines << '...'
+    lines.join("\n")
   end
 
   def pretty_json(json)
