@@ -49,8 +49,8 @@ class PrReview
   end
 
   # might be evmorov, but might be someone else if it's a fork
-  def author
-    @author ||= request_gh("gh pr view --json author #{@pr_url} | jq -r '.author.login'").strip
+  def pr_owner
+    @pr_owner ||= request_gh("gh pr view --json headRepositoryOwner #{@pr_url} | jq -r '.headRepositoryOwner.login'").strip
   end
 
   # pr-review-llm
@@ -115,7 +115,7 @@ class PrReview
   def updated_files
     result = []
     file_paths = request_gh("gh pr diff --name-only #{@pr_url}")
-    api_contents_path = "repos/#{author}/#{repo}/contents"
+    api_contents_path = "repos/#{pr_owner}/#{repo}/contents"
 
     file_paths.split("\n").each do |file_path|
       next if %w[readme.md changelog.md].include?(file_path.downcase)
