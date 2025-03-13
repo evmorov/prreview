@@ -118,6 +118,8 @@ class PrReview
     api_contents_path = "repos/#{author}/#{repo}/contents"
 
     file_paths.split("\n").each do |file_path|
+      next if %w[readme.md changelog.md].include?(file_path.downcase)
+
       content = request_gh(%(
         gh api #{api_contents_path}/#{file_path}?ref=#{branch} | jq -r '.content' | base64 --decode
       ).strip)
