@@ -8,8 +8,11 @@ class PrReview
   def initialize
     raise 'brew install gh && gh auth login' unless system('gh auth status > /dev/null')
 
-    @pr_url = ARGV[0]
+    @pr_url = ARGV.shift
     raise 'No Github URL is provided' if @pr_url.nil? || @pr_url.empty?
+
+    @context_paths = ARGV # optional
+    @context_paths.each { |path| raise "No file was found #{path}" unless File.exist?(path) }
   end
 
   def run
@@ -22,6 +25,7 @@ class PrReview
     prompt << details_with_comments
     prompt << linked_issues
     prompt << updated_files
+    prompt << context_files
 
     diff = request_gh("gh pr diff #{@pr_url}")
     prompt << wrap_content('PR diff', diff)
@@ -131,6 +135,12 @@ class PrReview
     end
 
     result
+  end
+
+  def context_files
+    @context_paths.map do |path|
+      wrap_content("Context file: #{path}", File.read(path))
+    end
   end
 
   def wrap_content(title, content)
