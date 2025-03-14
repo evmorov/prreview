@@ -17,10 +17,12 @@ class PrReview
 
   def run
     prompt = []
-    prompt << @pr_url
+    prompt << '<prompt>'
+
+    prompt << wrap_content('pr-url', @pr_url)
 
     readme = request_gh("gh repo view #{repo_url}")
-    prompt << wrap_content('README.md', limit_lines(readme, 50))
+    prompt << wrap_file('README.md', limit_lines(readme, 50))
 
     prompt << details_with_comments
     prompt << linked_issues
@@ -28,11 +30,12 @@ class PrReview
     prompt << context_files
 
     diff = request_gh("gh pr diff #{@pr_url}")
-    prompt << wrap_content('PR diff', diff)
+    prompt << wrap_content('pr-diff', diff)
 
     task = 'Check the PR. Do you see any problems there?'
-    prompt << wrap_content('Your task', task)
+    prompt << wrap_content('your-task', task)
 
+    prompt << '</prompt>'
     IO.popen('pbcopy', 'w') { |io| io.puts(prompt) }
   end
 
@@ -80,7 +83,7 @@ class PrReview
       }'
     REQ
     details_with_comments = request_gh(request)
-    wrap_content('PR description, commits and comments', pretty_json(details_with_comments))
+    wrap_content('pr-description-commits-and-comments', pretty_json(details_with_comments))
   end
 
   # Currently only works for issues within the same repository
@@ -115,7 +118,7 @@ class PrReview
       gh api --paginate repos/#{owner}/#{repo}/issues/#{issue_number}/comments \
       --jq '.[] | "\\(.user.login): \\(.body)"'
     ).strip)
-    wrap_content("Linked issue ##{issue_number}", "#{issue_desc}\n--\nComments:\n\n#{issue_comments}")
+    wrap_content("linked-issue-#{issue_number}", "#{issue_desc}\n--\nComments:\n\n#{issue_comments}")
   end
 
   def updated_files
@@ -131,7 +134,7 @@ class PrReview
       ).strip)
       next unless content
 
-      result << wrap_content("Updated file: #{file_path}", content)
+      result << wrap_file("Updated file: #{file_path}", content)
     end
 
     result
@@ -139,16 +142,27 @@ class PrReview
 
   def context_files
     @context_paths.map do |path|
-      wrap_content("Context file: #{path}", File.read(path))
+      wrap_file("Context file: #{path}", File.read(path))
     end
   end
 
-  def wrap_content(title, content)
+  def wrap_content(tag, content)
     r = []
-    r << "\n"
-    r << "=========== #{title} ==========="
-    r << "\n"
+    r << "<#{tag}>"
     r << content
+    r << "</#{tag}>"
+    r << ''
+  end
+
+  def wrap_file(title, content)
+    r = []
+    r << '<file>'
+    r << "<title>#{title}</title>"
+    r << '<content>'
+    r << content
+    r << '</content>'
+    r << '</file>'
+    r << ''
   end
 
   def request_gh(cmd)
