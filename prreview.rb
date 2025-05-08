@@ -204,7 +204,7 @@ class Rrreview
 
   def copy_result_to_clipboard
     Clipboard.copy(@xml)
-    puts 'XML generated and copied to clipboard.'
+    puts 'XML prompt generated and copied to clipboard.'
   end
 end
 
