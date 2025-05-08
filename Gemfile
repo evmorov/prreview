@@ -2,6 +2,7 @@
 
 source 'https://rubygems.org'
 
+gem 'base64'
 gem 'clipboard'
 gem 'faraday-retry'
 gem 'nokogiri'

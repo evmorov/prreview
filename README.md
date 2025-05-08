@@ -3,8 +3,9 @@
 Run this command with a PR URL:
 
 ```sh
-bundle exec ruby pr_review.rb --help
-bundle exec ruby pr_review.rb -u https://github.com/evmorov/pr-review-prompt/pull/2
+bundle exec ruby prreview.rb --help
+bundle exec ruby prreview.rb -u https://github.com/evmorov/prreview/pull/2
+bundle exec ruby prreview.rb --url https://github.com/evmorov/prreview/pull/2 --all-content --prompt "Are there any security issues?"
 ```
 
 Now, just paste the PR details into ChatGPT, Claude, or any LLM for review.
@@ -23,7 +24,7 @@ It then copies everything to your clipboard.
 ## Requirements
 
 - Ruby
-- GITHUB_TOKEN environment variable
+- `GITHUB_TOKEN` environment variable
 
 ## License
 

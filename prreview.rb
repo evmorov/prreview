@@ -6,11 +6,11 @@ require 'nokogiri'
 require 'octokit'
 require 'optparse'
 
-class Reviewer
+class Prreview
   DEFAULT_PROMPT = 'Your task is to review this pull request. Do you see any problems there?'
 
   # url or owner/repo#123 or #123
-  REGEX = %r{
+  URL_REGEX = %r{
     https?://github\.com/
       (?<owner>[\w.-]+) /
       (?<repo>[\w.-]+) /
@@ -62,7 +62,7 @@ class Reviewer
   def parse_url!
     abort 'Error: Pull-request URL missing. Use -u or --url.' if @url.to_s.empty?
 
-    match = @url.match(REGEX)
+    match = @url.match(URL_REGEX)
     abort 'Error: Invalid URL format. See --help for usage.' unless match
 
     @owner = match[:owner]
@@ -108,7 +108,7 @@ class Reviewer
     @issues = []
 
     text = [@pull_request.body, *@comments].join("\n")
-    queue = extract_refs(text, REGEX)
+    queue = extract_refs(text, URL_REGEX)
     seen = Set.new
 
     until queue.empty?
@@ -124,7 +124,7 @@ class Reviewer
       @issues << issue
 
       new_text = [issue[:description], *issue[:comments]].join("\n")
-      new_refs = extract_refs(new_text, REGEX).reject { |nref| seen.include?(nref[:key]) }
+      new_refs = extract_refs(new_text, URL_REGEX).reject { |nref| seen.include?(nref[:key]) }
       queue.concat(new_refs)
     end
   end
@@ -204,8 +204,8 @@ class Reviewer
 
   def copy_result_to_clipboard
     Clipboard.copy(@xml)
-    puts 'XML generated and copied to clipboard.'
+    puts 'XML prompt generated and copied to clipboard.'
   end
 end
 
-Reviewer.new.process
+Prreview.new.process
