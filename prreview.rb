@@ -6,7 +6,7 @@ require 'nokogiri'
 require 'octokit'
 require 'optparse'
 
-class Reviewer
+class Rrreview
   DEFAULT_PROMPT = 'Your task is to review this pull request. Do you see any problems there?'
 
   # url or owner/repo#123 or #123
@@ -208,4 +208,4 @@ class Reviewer
   end
 end
 
-Reviewer.new.process
+Rrreview.new.process
