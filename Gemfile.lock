@@ -2,11 +2,11 @@ PATH
   remote: .
   specs:
     prreview (0.1.0)
-      base64
-      clipboard
-      faraday-retry
-      nokogiri
-      octokit
+      base64 (~> 0.2)
+      clipboard (~> 2.0)
+      faraday-retry (~> 2.3)
+      nokogiri (~> 1.18)
+      octokit (~> 10.0)
 
 GEM
   remote: https://rubygems.org/
