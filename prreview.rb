@@ -8,6 +8,7 @@ require 'optparse'
 
 class Prreview
   DEFAULT_PROMPT = 'Your task is to review this pull request. Do you see any problems there?'
+  DEFAULT_ISSUES_LIMIT = 10
 
   # url or owner/repo#123 or #123
   URL_REGEX = %r{
@@ -43,6 +44,7 @@ class Prreview
   def parse_options!
     @prompt = DEFAULT_PROMPT
     @include_content = false
+    @issues_limit = DEFAULT_ISSUES_LIMIT
 
     parser = OptionParser.new do |opts|
       opts.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
@@ -50,6 +52,7 @@ class Prreview
       opts.on('-u', '--url URL', 'Pull‑request URL (https://github.com/owner/repo/pull/1)') { |v| @url = v }
       opts.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
       opts.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
+      opts.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_ISSUES_LIMIT})") { |v| @issues_limit = v }
       opts.on('-h', '--help', 'Show help') do
         puts opts
         exit
@@ -111,7 +114,7 @@ class Prreview
     queue = extract_refs(text, URL_REGEX)
     seen = Set.new
 
-    until queue.empty?
+    until queue.empty? || @issues.length >= @issues_limit
       ref = queue.shift
       key = ref[:key]
       next if seen.include?(key)
@@ -127,6 +130,8 @@ class Prreview
       new_refs = extract_refs(new_text, URL_REGEX).reject { |nref| seen.include?(nref[:key]) }
       queue.concat(new_refs)
     end
+
+    puts "Fetched #{@issues.length} issues (limit: #{@issues_limit})"
   end
 
   def extract_refs(text, pattern)
