@@ -2,10 +2,9 @@
 
 source 'https://rubygems.org'
 
-gem 'base64'
-gem 'clipboard'
-gem 'faraday-retry'
-gem 'nokogiri'
-gem 'octokit'
+gemspec
+
+gem 'irb'
 gem 'pry-byebug'
+gem 'rspec'
 gem 'rubocop'
