@@ -4,7 +4,15 @@ source 'https://rubygems.org'
 
 gemspec
 
-gem 'irb'
-gem 'pry-byebug'
-gem 'rspec'
-gem 'rubocop'
+group :development do
+  gem 'irb'
+  gem 'rubocop'
+end
+
+group :development, :test do
+  gem 'pry-byebug'
+end
+
+group :test do
+  gem 'rspec'
+end
