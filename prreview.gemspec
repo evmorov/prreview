@@ -5,8 +5,12 @@ require_relative 'lib/prreview/version'
 Gem::Specification.new do |spec|
   spec.name = 'prreview'
   spec.version = Prreview::VERSION
-  spec.authors = ['Evgenii Morozov']
-  spec.email = ['evmorov@gmail.com']
+  spec.authors = [
+    'Evgenii Morozov',
+    'Iurii Alekseev',
+    'Quint'
+  ]
+  spec.email = %w[evmorov@gmail.com iurii.alekseev.inbox@gmail.com quintgorssel@gmail.com]
 
   spec.summary = 'A CLI tool that formats GitHub PRs for LLM code reviews.'
   spec.description = 'PrReview collects PR data from GitHub (description, commits, comments, linked issues, and code changes) and formats it as XML. Paste this XML into any LLM like ChatGPT or Claude to get helpful code reviews.'
