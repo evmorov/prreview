@@ -1,11 +1,22 @@
 ## How to use
 
+Install:
+
+```sh
+gem install prreview
+```
+
 Run this command with a PR URL:
 
 ```sh
-bundle exec ruby prreview.rb --help
-bundle exec ruby prreview.rb -u https://github.com/evmorov/prreview/pull/2
-bundle exec ruby prreview.rb --url https://github.com/evmorov/prreview/pull/2 --all-content --prompt "Are there any security issues?"
+prreview -u https://github.com/owner/repo/pull/123
+```
+
+Or use more options:
+
+```
+prreview --help
+prreview --url https://github.com/owner/repo/pull/123 --all-content --prompt "Are there any security issues?"
 ```
 
 Now, just paste the PR details into ChatGPT, Claude, or any LLM for review.
@@ -20,6 +31,16 @@ PrReview collects key details about a PR, including:
 - The full PR diff
 
 It then copies everything to your clipboard.
+
+## Why prompt
+
+Advantages over LLM integrations:
+
+- You're free to use the LLM of your choice
+- You can continue the conversation with the LLM right in the chat, asking to pay attention to a specific part of the PR
+- The gem is simpler
+
+However, in the future we might add some optional integrations.
 
 ## Requirements
 
