@@ -38,6 +38,7 @@ module Prreview
     def process
       fetch_pull_request
       fetch_issues
+      load_optional_files
       build_xml
       copy_result_to_clipboard
     end
@@ -48,6 +49,7 @@ module Prreview
       @prompt = DEFAULT_PROMPT
       @include_content = false
       @issues_limit = DEFAULT_ISSUES_LIMIT
+      @optional_files  = []
 
       parser = OptionParser.new do |opts|
         opts.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
@@ -56,6 +58,9 @@ module Prreview
         opts.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
         opts.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
         opts.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_ISSUES_LIMIT})") { |v| @issues_limit = v }
+        opts.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
+          @optional_files = v.split(',').map(&:strip)
+        end
         opts.on('-h', '--help', 'Show help') do
           puts opts
           exit
@@ -137,6 +142,21 @@ module Prreview
       puts "Fetched #{@issues.length} issues (limit: #{@issues_limit})"
     end
 
+    def load_optional_files
+      @optional_file_contents = @optional_files.filter_map do |path|
+        if File.exist?(path)
+          content = File.read(path)
+          { filename: path, content: content }
+        else
+          warn "File #{path} not found, skipping"
+          nil
+        end
+      rescue StandardError => e
+        warn "Error reading file #{path}: #{e.message}"
+        nil
+      end
+    end
+
     def extract_refs(text, pattern)
       text.to_enum(:scan, pattern).filter_map do
         m = Regexp.last_match
@@ -200,6 +220,17 @@ module Prreview
               x.description issue[:description]
 
               issue[:comments].each { |c| x.comment_ c }
+            end
+          end
+
+          unless @optional_file_contents.empty?
+            x.local_context_files do
+              @optional_file_contents.each do |file|
+                x.file do
+                  x.filename file[:filename]
+                  x.content file[:content]
+                end
+              end
             end
           end
 
