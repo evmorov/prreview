@@ -49,7 +49,7 @@ module Prreview
       @prompt = DEFAULT_PROMPT
       @include_content = false
       @issues_limit = DEFAULT_ISSUES_LIMIT
-      @optional_files  = []
+      @optional_files = []
 
       parser = OptionParser.new do |opts|
         opts.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
