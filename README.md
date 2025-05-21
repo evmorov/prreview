@@ -42,6 +42,13 @@ Advantages over LLM integrations:
 
 However, in the future we might add some optional integrations.
 
+## Tips
+
+- Run `prreview` after you've thoroughly reviewed the PR. It works best when you understand the changes well.
+- Don't hesitate to try different LLMs or refresh the response to see if something new comes up.
+- Use `--all-content` and other extra options — they can significantly improve results for some PRs.
+- After the LLM responds, ask "Anything else?" to potentially uncover more issues.
+
 ## Requirements
 
 - Ruby
