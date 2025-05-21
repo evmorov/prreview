@@ -58,7 +58,7 @@ module Prreview
         opts.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
         opts.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
         opts.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_ISSUES_LIMIT})") { |v| @issues_limit = v }
-        opts.on('-o', '--optional FILES', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
+        opts.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
           @optional_files = v.split(',').map(&:strip)
         end
         opts.on('-h', '--help', 'Show help') do
