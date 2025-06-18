@@ -1,0 +1,4 @@
+example_id                     | status | run_time        |
+------------------------------ | ------ | --------------- |
+./spec/prreview_spec.rb[1:1]   | passed | 0.00059 seconds |
+./spec/prreview_spec.rb[2:1:1] | passed | 0.01083 seconds |
