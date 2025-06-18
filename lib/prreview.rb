@@ -194,6 +194,7 @@ module Prreview
       builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |x|
         x.prompt do
           x.task @prompt
+          x.current_date DateTime.now
 
           x.pull_request do
             x.number @pr_number
