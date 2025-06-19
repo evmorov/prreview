@@ -110,7 +110,8 @@ module Prreview
       puts "Fetching file content for #{path}"
 
       content = @client.contents(@full_repo, path:, ref: @pull_request.head.sha)
-      Base64.decode64(content[:content])
+      decoded = Base64.decode64(content[:content])
+      binary?(decoded) ? '(binary file)' : decoded
     rescue Octokit::NotFound
       '(file content not found)'
     end
@@ -240,6 +241,10 @@ module Prreview
       end
 
       @xml = builder.doc.root.to_xml
+    end
+
+    def binary?(string)
+      string.include?("\x00")
     end
 
     def copy_result_to_clipboard
