@@ -51,23 +51,28 @@ module Prreview
       @issues_limit = DEFAULT_ISSUES_LIMIT
       @optional_files = []
 
-      parser = OptionParser.new do |opts|
-        opts.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
+      ARGV << '-h' if ARGV.empty?
 
-        opts.on('-u', '--url URL', 'Pull‑request URL (https://github.com/owner/repo/pull/1)') { |v| @url = v }
-        opts.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
-        opts.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
-        opts.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_ISSUES_LIMIT})") { |v| @issues_limit = v }
-        opts.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
+      OptionParser.new do |parser|
+        parser.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
+
+        parser.on('-u', '--url URL', 'Pull‑request URL (https://github.com/owner/repo/pull/1)') { |v| @url = v }
+        parser.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
+        parser.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
+        parser.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_ISSUES_LIMIT})") { |v| @issues_limit = v }
+        parser.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
           @optional_files = v.split(',').map(&:strip)
         end
-        opts.on('-h', '--help', 'Show help') do
-          puts opts
+        parser.on_tail('-v', '--version', 'Show version') do
+          puts VERSION
           exit
         end
+        parser.on_tail('-h', '--help', 'Show help') do
+          puts parser
+          exit
+        end
+        parser.parse!
       end
-
-      parser.parse!
     end
 
     def parse_url!
