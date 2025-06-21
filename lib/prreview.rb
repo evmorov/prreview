@@ -188,7 +188,7 @@ module Prreview
         comments: @client.issue_comments(full_repo, number).map(&:body)
       }
     rescue Octokit::NotFound
-      puts "Linked issue #{number} for #{full_repo} not found, skipping"
+      warn "Linked issue #{number} for #{full_repo} not found, skipping"
       nil
     end
 
