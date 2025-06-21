@@ -36,8 +36,8 @@ module Prreview
     end
 
     def process
-      fetch_pull_request
       load_optional_files
+      fetch_pull_request
       fetch_linked_issues
       build_xml
       copy_result_to_clipboard
@@ -89,11 +89,11 @@ module Prreview
 
     def initialize_client
       access_token = ENV.fetch('GITHUB_TOKEN', nil)
-      abort 'Error: GITHUB_TOKEN is not set' if access_token.to_s.empty?
+      abort 'Error: GITHUB_TOKEN is not set.' if access_token.to_s.empty?
 
       @client = Octokit::Client.new(access_token:, auto_paginate: true)
     rescue Octokit::Unauthorized
-      abort 'Error: Invalid GITHUB_TOKEN'
+      abort 'Error: Invalid GITHUB_TOKEN.'
     end
 
     def fetch_pull_request
@@ -112,7 +112,7 @@ module Prreview
     end
 
     def fetch_file_content(path)
-      puts "Fetching file content for #{path}"
+      puts "Fetching #{path}"
 
       content = @client.contents(@full_repo, path:, ref: @pull_request.head.sha)
       decoded = Base64.decode64(content[:content])
@@ -150,16 +150,12 @@ module Prreview
 
     def load_optional_files
       @optional_file_contents = @optional_files.filter_map do |path|
-        if File.exist?(path)
-          content = File.read(path)
-          { filename: path, content: content }
-        else
-          warn "File #{path} not found, skipping"
-          nil
-        end
+        puts "Reading #{path}"
+        abort "Optional file #{path} not found." unless File.exist?(path)
+        content = File.read(path)
+        { filename: path, content: }
       rescue StandardError => e
-        warn "Error reading file #{path}: #{e.message}"
-        nil
+        raise "Error reading file #{path}: #{e.message}"
       end
     end
 
@@ -254,7 +250,7 @@ module Prreview
 
     def copy_result_to_clipboard
       Clipboard.copy(@xml)
-      puts 'XML prompt generated and copied to clipboard.'
+      puts 'XML prompt generated and copied to your clipboard.'
     end
   end
 end
