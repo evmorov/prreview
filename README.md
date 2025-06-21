@@ -1,3 +1,5 @@
+[![Gem Version](https://badge.fury.io/rb/prreview.svg)](https://badge.fury.io/rb/prreview)
+
 ## How to use
 
 Install:
@@ -48,7 +50,9 @@ However, in the future we might add some optional integrations.
 - Run `prreview` after you've thoroughly reviewed the PR. It works best when you understand the changes well.
 - Don't hesitate to try different LLMs or refresh the response to see if something new comes up.
 - Use `--all-content` and other extra options — they can significantly improve results for some PRs.
-- After the LLM responds, ask "Anything else?" to potentially uncover more issues.
+- After the LLM responds, to potentially uncover more issues:
+  - Ask "Anything else?".
+  - If the response has a list of problems, try responding to each of them, giving the LLM more context.
 
 ## Requirements
 
