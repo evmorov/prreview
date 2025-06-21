@@ -1,3 +1,5 @@
+[![Gem Version](https://badge.fury.io/rb/prreview.svg)](https://badge.fury.io/rb/prreview)
+
 ## How to use
 
 Install:
