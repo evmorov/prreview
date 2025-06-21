@@ -51,7 +51,7 @@ module Prreview
       @issues_limit = DEFAULT_ISSUES_LIMIT
       @optional_files = []
 
-      ARGV << '-h' if ARGV.empty?
+      ARGV << '--help' if ARGV.empty?
 
       OptionParser.new do |parser|
         parser.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
