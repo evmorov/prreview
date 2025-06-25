@@ -11,7 +11,7 @@ require 'optparse'
 module Prreview
   class CLI
     DEFAULT_PROMPT = 'Your task is to review this pull request. Do you see any problems there?'
-    DEFAULT_ISSUES_LIMIT = 10
+    DEFAULT_LINKED_ISSUES_LIMIT = 5
 
     # url or owner/repo#123 or #123
     URL_REGEX = %r{
@@ -36,9 +36,9 @@ module Prreview
     end
 
     def process
-      fetch_pull_request
-      fetch_issues
       load_optional_files
+      fetch_pull_request
+      fetch_linked_issues
       build_xml
       copy_result_to_clipboard
     end
@@ -48,26 +48,31 @@ module Prreview
     def parse_options!
       @prompt = DEFAULT_PROMPT
       @include_content = false
-      @issues_limit = DEFAULT_ISSUES_LIMIT
+      @linked_issues_limit = DEFAULT_LINKED_ISSUES_LIMIT
       @optional_files = []
 
-      parser = OptionParser.new do |opts|
-        opts.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
+      ARGV << '--help' if ARGV.empty?
 
-        opts.on('-u', '--url URL', 'Pull‑request URL (https://github.com/owner/repo/pull/1)') { |v| @url = v }
-        opts.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
-        opts.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
-        opts.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_ISSUES_LIMIT})") { |v| @issues_limit = v }
-        opts.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
+      OptionParser.new do |parser|
+        parser.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
+
+        parser.on('-u', '--url URL', 'Pull‑request URL (https://github.com/owner/repo/pull/1)') { |v| @url = v }
+        parser.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
+        parser.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
+        parser.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_LINKED_ISSUES_LIMIT})") { |v| @linked_issues_limit = v }
+        parser.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
           @optional_files = v.split(',').map(&:strip)
         end
-        opts.on('-h', '--help', 'Show help') do
-          puts opts
+        parser.on_tail('-v', '--version', 'Show version') do
+          puts VERSION
           exit
         end
+        parser.on_tail('-h', '--help', 'Show help') do
+          puts parser
+          exit
+        end
+        parser.parse!
       end
-
-      parser.parse!
     end
 
     def parse_url!
@@ -84,11 +89,11 @@ module Prreview
 
     def initialize_client
       access_token = ENV.fetch('GITHUB_TOKEN', nil)
-      abort 'Error: GITHUB_TOKEN is not set' if access_token.to_s.empty?
+      abort 'Error: GITHUB_TOKEN is not set.' if access_token.to_s.empty?
 
       @client = Octokit::Client.new(access_token:, auto_paginate: true)
     rescue Octokit::Unauthorized
-      abort 'Error: Invalid GITHUB_TOKEN'
+      abort 'Error: Invalid GITHUB_TOKEN.'
     end
 
     def fetch_pull_request
@@ -107,7 +112,7 @@ module Prreview
     end
 
     def fetch_file_content(path)
-      puts "Fetching file content for #{path}"
+      puts "Fetching #{path}"
 
       content = @client.contents(@full_repo, path:, ref: @pull_request.head.sha)
       decoded = Base64.decode64(content[:content])
@@ -116,45 +121,41 @@ module Prreview
       '(file content not found)'
     end
 
-    def fetch_issues
-      @issues = []
+    def fetch_linked_issues
+      @linked_issues = []
 
       text = [@pull_request.body, *@comments].join("\n")
       queue = extract_refs(text, URL_REGEX)
       seen = Set.new
 
-      until queue.empty? || @issues.length >= @issues_limit
+      until queue.empty? || @linked_issues.length >= @linked_issues_limit
         ref = queue.shift
         key = ref[:key]
         next if seen.include?(key)
 
         seen << key
 
-        issue = fetch_issue(ref)
+        issue = fetch_linked_issue(ref)
         next unless issue
 
-        @issues << issue
+        @linked_issues << issue
 
         new_text = [issue[:description], *issue[:comments]].join("\n")
         new_refs = extract_refs(new_text, URL_REGEX).reject { |nref| seen.include?(nref[:key]) }
         queue.concat(new_refs)
       end
 
-      puts "Fetched #{@issues.length} issues (limit: #{@issues_limit})"
+      puts "Fetched #{@linked_issues.length} linked issues (limit: #{@linked_issues_limit})"
     end
 
     def load_optional_files
       @optional_file_contents = @optional_files.filter_map do |path|
-        if File.exist?(path)
-          content = File.read(path)
-          { filename: path, content: content }
-        else
-          warn "File #{path} not found, skipping"
-          nil
-        end
+        puts "Reading #{path}"
+        abort "Optional file #{path} not found." unless File.exist?(path)
+        content = File.read(path)
+        { filename: path, content: }
       rescue StandardError => e
-        warn "Error reading file #{path}: #{e.message}"
-        nil
+        raise "Error reading file #{path}: #{e.message}"
       end
     end
 
@@ -172,11 +173,11 @@ module Prreview
       end
     end
 
-    def fetch_issue(ref)
+    def fetch_linked_issue(ref)
       full_repo = "#{ref[:owner]}/#{ref[:repo]}"
       number = ref[:number]
 
-      puts "Fetching issue ##{number} for #{full_repo}"
+      puts "Fetching linked issue ##{number} for #{full_repo}"
 
       issue = @client.issue(full_repo, number)
       {
@@ -187,7 +188,7 @@ module Prreview
         comments: @client.issue_comments(full_repo, number).map(&:body)
       }
     rescue Octokit::NotFound
-      puts "Issue #{number} for #{full_repo} not found, skipping"
+      warn "Linked issue #{number} for #{full_repo} not found, skipping"
       nil
     end
 
@@ -214,8 +215,8 @@ module Prreview
             end
           end
 
-          @issues.each do |issue|
-            x.issue do
+          @linked_issues.each do |issue|
+            x.linked_issue do
               x.repo issue[:full_repo]
               x.number issue[:number]
               x.title issue[:title]
@@ -249,7 +250,7 @@ module Prreview
 
     def copy_result_to_clipboard
       Clipboard.copy(@xml)
-      puts 'XML prompt generated and copied to clipboard.'
+      puts 'XML prompt generated and copied to your clipboard.'
     end
   end
 end
