@@ -37,8 +37,12 @@ module Prreview
 
     def process
       load_optional_files
-      fetch_pull_request
-      fetch_linked_issues
+      begin
+        fetch_pull_request
+        fetch_linked_issues
+      rescue Octokit::Unauthorized
+        abort 'Error: Invalid GITHUB_TOKEN.'
+      end
       build_xml
       copy_result_to_clipboard
     end
@@ -92,8 +96,6 @@ module Prreview
       abort 'Error: GITHUB_TOKEN is not set.' if access_token.to_s.empty?
 
       @client = Octokit::Client.new(access_token:, auto_paginate: true)
-    rescue Octokit::Unauthorized
-      abort 'Error: Invalid GITHUB_TOKEN.'
     end
 
     def fetch_pull_request
