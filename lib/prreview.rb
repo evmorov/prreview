@@ -42,6 +42,8 @@ module Prreview
         fetch_linked_issues
       rescue Octokit::Unauthorized
         abort 'Error: Invalid GITHUB_TOKEN.'
+      rescue Octokit::NotFound
+        abort 'Error: Pull request not found.'
       end
       build_xml
       copy_result_to_clipboard
