@@ -60,9 +60,13 @@ module Prreview
       ARGV << '--help' if ARGV.empty?
 
       OptionParser.new do |parser|
-        parser.banner = "Usage: #{File.basename($PROGRAM_NAME)} -u URL [options]"
+        parser.banner = <<~BAN
+          Usage: #{File.basename($PROGRAM_NAME)} URL [options]
 
-        parser.on('-u', '--url URL', 'Pull‑request URL (https://github.com/owner/repo/pull/1)') { |v| @url = v }
+          Pull request URL example: https://github.com/owner/repo/pull/1
+
+        BAN
+
         parser.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
         parser.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
         parser.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_LINKED_ISSUES_LIMIT})") { |v| @linked_issues_limit = v }
@@ -79,10 +83,12 @@ module Prreview
         end
         parser.parse!
       end
+
+      @url = ARGV.first
     end
 
     def parse_url!
-      abort 'Error: Pull-request URL missing. Use -u or --url.' if @url.to_s.empty?
+      abort 'Error: Pull request URL missing.' if @url.to_s.empty?
 
       match = @url.match(URL_REGEX)
       abort 'Error: Invalid URL format. See --help for usage.' unless match
