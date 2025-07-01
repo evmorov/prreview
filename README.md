@@ -11,14 +11,14 @@ gem install prreview
 Run this command with a PR URL:
 
 ```sh
-prreview -u https://github.com/owner/repo/pull/123
+prreview https://github.com/owner/repo/pull/123
 ```
 
 Or use more options:
 
 ```
 prreview --help
-prreview --url https://github.com/owner/repo/pull/123 --all-content --prompt "Are there any security issues?"
+prreview https://github.com/owner/repo/pull/123 --all-content --prompt "Are there any security issues?"
 ```
 
 Now, just paste the PR details into ChatGPT, Claude, or any LLM for review.
@@ -57,7 +57,8 @@ However, in the future we might add some optional integrations.
 ## Requirements
 
 - Ruby
-- `GITHUB_TOKEN` environment variable
+- `GITHUB_TOKEN` environment
+  variable. [GitHub Docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 
 ## License
 
