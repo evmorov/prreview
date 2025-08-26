@@ -116,7 +116,7 @@ module Prreview
         {
           filename: file.filename,
           patch: file.patch || '(no patch data)',
-          content: @include_content ? fetch_file_content(file.filename) : '(no content)'
+          content: @include_content && !skip_file?(file.filename) ? fetch_file_content(file.filename) : '(no content)'
         }
       end
     end
@@ -220,7 +220,7 @@ module Prreview
               x.file do
                 x.filename file[:filename]
                 x.content file[:content]
-                x.patch file[:patch]
+                x.patch extract_patch(file)
               end
             end
           end
@@ -252,6 +252,16 @@ module Prreview
       end
 
       @xml = builder.doc.root.to_xml
+    end
+
+    def extract_patch(file)
+      return if skip_file?(file[:filename])
+
+      file[:patch]
+    end
+
+    def skip_file?(filename)
+      File.extname(filename) == '.svg'
     end
 
     def binary?(string)
