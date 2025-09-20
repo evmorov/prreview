@@ -26,5 +26,8 @@ Metrics/CyclomaticComplexity:
 Metrics/ParameterLists:
   Enabled: false
 
+Metrics/PerceivedComplexity:
+  Enabled: false
+
 Naming/MethodParameterName:
   Enabled: false

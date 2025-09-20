@@ -12,10 +12,10 @@ module Prreview
   class CLI
     DEFAULT_PROMPT = <<~PROMPT
       Your task is to review this pull request.
-      Lines starting with `-` are deleted.
-      Lines starting with `+` are added.
-      Focus on new issues, not ones that were already there.
-      Do you see any issues?
+      Patch lines starting with `-` are deleted.
+      Patch lines starting with `+` are added.
+      Focus on new problems, not ones that were already there.
+      Do you see any problems?
     PROMPT
 
     DEFAULT_LINKED_ISSUES_LIMIT = 5
@@ -45,7 +45,7 @@ module Prreview
     def process
       load_optional_files
       begin
-        fetch_pull_request
+        fetch_pr
         fetch_linked_issues
       rescue Octokit::Unauthorized
         abort 'Error: Invalid GITHUB_TOKEN.'
@@ -113,26 +113,21 @@ module Prreview
       @client = Octokit::Client.new(access_token:, auto_paginate: true)
     end
 
-    def fetch_pull_request
+    def fetch_pr
       puts "Fetching PR ##{@pr_number} for #{@full_repo}"
 
-      @pull_request = @client.pull_request(@full_repo, @pr_number)
-      @comments = @client.issue_comments(@full_repo, @pr_number).map(&:body)
-      @commits = @client.pull_request_commits(@full_repo, @pr_number).map { |c| c.commit.message }
-      @files = @client.pull_request_files(@full_repo, @pr_number).map do |file|
-        {
-          filename: file.filename,
-          patch: file.patch || '(no patch data)',
-          content: @include_content && !skip_file?(file.filename) ? fetch_file_content(file.filename) : '(no content)'
-        }
-      end
+      @pr = @client.pull_request(@full_repo, @pr_number)
+      @pr_comments = @client.issue_comments(@full_repo, @pr_number)
+      @pr_code_comments = @client.pull_request_comments(@full_repo, @pr_number)
+      @pr_commits = @client.pull_request_commits(@full_repo, @pr_number)
+      @pr_files = @client.pull_request_files(@full_repo, @pr_number)
     end
 
     def fetch_file_content(path)
       puts "Fetching #{path}"
 
-      content = @client.contents(@full_repo, path:, ref: @pull_request.head.sha)
-      decoded = Base64.decode64(content[:content])
+      content = @client.contents(@full_repo, path:, ref: @pr.head.sha)
+      decoded = Base64.decode64(content.content)
       binary?(decoded) ? '(binary file)' : decoded
     rescue Octokit::NotFound
       '(file content not found)'
@@ -141,7 +136,7 @@ module Prreview
     def fetch_linked_issues
       @linked_issues = []
 
-      text = [@pull_request.body, *@comments].join("\n")
+      text = [@pr.body, *@pr_comments.map(&:body), *@pr_code_comments.map(&:body)].join("\n")
       queue = extract_refs(text, URL_REGEX)
       seen = Set.new
 
@@ -152,12 +147,12 @@ module Prreview
 
         seen << key
 
-        issue = fetch_linked_issue(ref)
-        next unless issue
+        linked_issue = fetch_linked_issue(ref)
+        next unless linked_issue
 
-        @linked_issues << issue
+        @linked_issues << linked_issue
 
-        new_text = [issue[:description], *issue[:comments]].join("\n")
+        new_text = [linked_issue[:issue].body, *linked_issue[:comments].map(&:body)].join("\n")
         new_refs = extract_refs(new_text, URL_REGEX).reject { |nref| seen.include?(nref[:key]) }
         queue.concat(new_refs)
       end
@@ -181,65 +176,97 @@ module Prreview
         m = Regexp.last_match
         next unless m[:number]
 
-        {
-          owner: m[:owner] || @owner,
-          repo: m[:repo] || @repo,
-          number: m[:number].to_i,
-          key: "#{m[:owner]}/#{m[:repo]}##{m[:number]}"
-        }
+        owner = m[:owner] || @owner
+        repo = m[:repo] || @repo
+        number = m[:number].to_i
+        key = "#{owner}/#{repo}##{number}"
+
+        { owner:, repo:, number:, key: }
       end
     end
 
     def fetch_linked_issue(ref)
-      full_repo = "#{ref[:owner]}/#{ref[:repo]}"
+      issue_path = "#{ref[:owner]}/#{ref[:repo]}"
       number = ref[:number]
 
-      puts "Fetching linked issue ##{number} for #{full_repo}"
+      puts "Fetching linked issue ##{number} for #{issue_path}"
 
-      issue = @client.issue(full_repo, number)
       {
-        full_repo:,
-        number:,
-        title: issue.title,
-        description: issue.body,
-        comments: @client.issue_comments(full_repo, number).map(&:body)
+        issue: @client.issue(issue_path, number),
+        comments: @client.issue_comments(issue_path, number)
       }
     rescue Octokit::NotFound
-      warn "Linked issue #{number} for #{full_repo} not found, skipping"
+      warn "Linked issue #{number} for #{issue_path} not found, skipping"
       nil
     end
 
     def build_xml
       builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |x|
         x.prompt do
-          x.task @prompt
+          x.your_task @prompt
           x.current_date DateTime.now
 
           x.pull_request do
-            x.number @pr_number
-            x.title @pull_request.title
-            x.description @pull_request.body
+            build_issue(x, @pr)
 
-            @comments.each { |c| x.comment_ c }
-            @commits.each { |m| x.commit m }
+            x.commits do
+              @pr_commits.each do |c|
+                x.commit do
+                  x.commiter c.committer&.login
+                  x.message c.commit.message
+                  x.date c.commit.committer&.date
+                end
+              end
+            end
 
-            @files.each do |file|
-              x.file do
-                x.filename file[:filename]
-                x.content file[:content]
-                x.patch extract_patch(file)
+            x.comments do
+              @pr_comments.each do |c|
+                x.comment_ do
+                  build_comment(x, c)
+                end
+              end
+            end
+
+            x.code_comments do
+              @pr_code_comments.each do |c|
+                x.code_comment do
+                  build_comment(x, c)
+                  x.path c.path
+                  x.line c.line
+                end
+              end
+            end
+
+            x.pull_request_files do
+              @pr_files.each do |f|
+                content = fetch_file_content(f.filename) if @include_content && !skip_file?(f.filename)
+                patch = extract_patch(f) || '(no patch data)'
+
+                x.file do
+                  x.filename f.filename
+                  x.content(content) if content
+                  x.patch patch
+                end
               end
             end
           end
 
-          @linked_issues.each do |issue|
-            x.linked_issue do
-              x.repo issue[:full_repo]
-              x.number issue[:number]
-              x.title issue[:title]
-              x.description issue[:description]
+          x.linked_issues do
+            @linked_issues.each do |linked_issue|
+              issue = linked_issue[:issue]
+              comments = linked_issue[:comments]
 
-              issue[:comments].each { |c| x.comment_ c }
+              x.linked_issue do
+                build_issue(x, issue)
+
+                x.comments do
+                  comments.each do |c|
+                    x.comment_ do
+                      build_comment(x, c)
+                    end
+                  end
+                end
+              end
             end
           end
 
@@ -254,17 +281,32 @@ module Prreview
             end
           end
 
-          x.task @prompt
+          # Intentionally duplicate the prompt to remind LLM about the task
+          x.your_task @prompt
         end
       end
 
       @xml = builder.doc.root.to_xml
     end
 
-    def extract_patch(file)
-      return if skip_file?(file[:filename])
+    def build_issue(xml, issue)
+      xml.url issue.html_url
+      xml.user issue.user.login
+      xml.title issue.title
+      xml.body issue.body
+      xml.created_at issue.created_at
+    end
 
-      file[:patch]
+    def build_comment(xml, comment)
+      xml.user comment.user.login
+      xml.body comment.body
+      xml.created_at comment.created_at
+    end
+
+    def extract_patch(file)
+      return if skip_file?(file.filename)
+
+      file.patch
     end
 
     def skip_file?(filename)
