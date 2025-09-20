@@ -10,7 +10,14 @@ require 'optparse'
 
 module Prreview
   class CLI
-    DEFAULT_PROMPT = 'Your task is to review this pull request. Do you see any problems there?'
+    DEFAULT_PROMPT = <<~PROMPT
+      Your task is to review this pull request.
+      Lines starting with `-` are deleted.
+      Lines starting with `+` are added.
+      Focus on new issues, not ones that were already there.
+      Do you see any issues?
+    PROMPT
+
     DEFAULT_LINKED_ISSUES_LIMIT = 5
 
     # url or owner/repo#123 or #123
