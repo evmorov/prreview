@@ -127,7 +127,7 @@ module Prreview
       puts "Fetching #{path}"
 
       content = @client.contents(@full_repo, path:, ref: @pr.head.sha)
-      decoded = Base64.decode64(content[:content])
+      decoded = Base64.decode64(content.content)
       binary?(decoded) ? '(binary file)' : decoded
     rescue Octokit::NotFound
       '(file content not found)'
