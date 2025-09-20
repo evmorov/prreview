@@ -212,9 +212,9 @@ module Prreview
             x.commits do
               @pr_commits.each do |c|
                 x.commit do
-                  x.commiter c.committer.login
+                  x.commiter c.committer&.login
                   x.message c.commit.message
-                  x.date c.commit.committer.date
+                  x.date c.commit.committer&.date
                 end
               end
             end
@@ -281,6 +281,7 @@ module Prreview
             end
           end
 
+          # Intentionally duplicate the prompt to remind LLM about the task
           x.your_task @prompt
         end
       end
@@ -293,7 +294,7 @@ module Prreview
       xml.user issue.user.login
       xml.title issue.title
       xml.body issue.body
-      xml.createt_at issue.created_at
+      xml.created_at issue.created_at
     end
 
     def build_comment(xml, comment)
