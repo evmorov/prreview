@@ -230,11 +230,9 @@ module Prreview
             x.code_comments do
               @pr_code_comments.each do |c|
                 x.code_comment do
-                  x.user c.user.login
+                  build_comment(x, c)
                   x.path c.path
-                  x.diff_hunk c.diff_hunk
-                  x.body c.body
-                  x.created_at c.created_at
+                  x.line c.line
                 end
               end
             end
