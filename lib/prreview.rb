@@ -147,12 +147,12 @@ module Prreview
 
         seen << key
 
-        issue = fetch_linked_issue(ref)
-        next unless issue
+        linked_issue = fetch_linked_issue(ref)
+        next unless linked_issue
 
-        @linked_issues << issue
+        @linked_issues << linked_issue
 
-        new_text = [issue[:description], *issue[:comments]].join("\n")
+        new_text = [linked_issue[:issue].body, *linked_issue[:comments].map(&:body)].join("\n")
         new_refs = extract_refs(new_text, URL_REGEX).reject { |nref| seen.include?(nref[:key]) }
         queue.concat(new_refs)
       end
@@ -176,31 +176,27 @@ module Prreview
         m = Regexp.last_match
         next unless m[:number]
 
-        {
-          owner: m[:owner] || @owner,
-          repo: m[:repo] || @repo,
-          number: m[:number].to_i,
-          key: "#{m[:owner]}/#{m[:repo]}##{m[:number]}"
-        }
+        owner = m[:owner] || @owner
+        repo = m[:repo] || @repo
+        number = m[:number].to_i
+        key = "#{owner}/#{repo}##{number}"
+
+        { owner:, repo:, number:, key: }
       end
     end
 
     def fetch_linked_issue(ref)
-      full_repo = "#{ref[:owner]}/#{ref[:repo]}"
+      issue_path = "#{ref[:owner]}/#{ref[:repo]}"
       number = ref[:number]
 
-      puts "Fetching linked issue ##{number} for #{full_repo}"
+      puts "Fetching linked issue ##{number} for #{issue_path}"
 
-      issue = @client.issue(full_repo, number)
       {
-        full_repo:,
-        number:,
-        title: issue.title,
-        description: issue.body,
-        comments: @client.issue_comments(full_repo, number).map(&:body)
+        issue: @client.issue(issue_path, number),
+        comments: @client.issue_comments(issue_path, number)
       }
     rescue Octokit::NotFound
-      warn "Linked issue #{number} for #{full_repo} not found, skipping"
+      warn "Linked issue #{number} for #{issue_path} not found, skipping"
       nil
     end
 
@@ -211,13 +207,7 @@ module Prreview
           x.current_date DateTime.now
 
           x.pull_request do
-            x.details do
-              x.user @pr.user.login
-              x.number @pr_number
-              x.title @pr.title
-              x.body @pr.body
-              x.created_at @pr.created_at
-            end
+            build_issue(x, @pr)
 
             x.commits do
               @pr_commits.each do |c|
@@ -232,9 +222,7 @@ module Prreview
             x.comments do
               @pr_comments.each do |c|
                 x.comment_ do
-                  x.user c.user.login
-                  x.body c.body
-                  x.created_at c.created_at
+                  build_comment(x, c)
                 end
               end
             end
@@ -254,7 +242,7 @@ module Prreview
             x.pull_request_files do
               @pr_files.each do |f|
                 content = fetch_file_content(f.filename) if @include_content && !skip_file?(f.filename)
-                patch =  extract_patch(f) || '(no patch data)'
+                patch = extract_patch(f) || '(no patch data)'
 
                 x.file do
                   x.filename f.filename
@@ -266,16 +254,18 @@ module Prreview
           end
 
           x.linked_issues do
-            @linked_issues.each do |issue|
+            @linked_issues.each do |linked_issue|
+              issue = linked_issue[:issue]
+              comments = linked_issue[:comments]
+
               x.linked_issue do
-                x.repo issue[:full_repo]
-                x.number issue[:number]
-                x.title issue[:title]
-                x.description issue[:description]
+                build_issue(x, issue)
 
                 x.comments do
-                  issue[:comments].each do |c|
-                    x.comment_ c
+                  comments.each do |c|
+                    x.comment_ do
+                      build_comment(x, c)
+                    end
                   end
                 end
               end
@@ -298,6 +288,20 @@ module Prreview
       end
 
       @xml = builder.doc.root.to_xml
+    end
+
+    def build_issue(xml, issue)
+      xml.url issue.html_url
+      xml.user issue.user.login
+      xml.title issue.title
+      xml.body issue.body
+      xml.createt_at issue.created_at
+    end
+
+    def build_comment(xml, comment)
+      xml.user comment.user.login
+      xml.body comment.body
+      xml.created_at comment.created_at
     end
 
     def extract_patch(file)
