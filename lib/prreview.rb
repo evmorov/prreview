@@ -12,10 +12,10 @@ module Prreview
   class CLI
     DEFAULT_PROMPT = <<~PROMPT
       Your task is to review this pull request.
-      Lines starting with `-` are deleted.
-      Lines starting with `+` are added.
-      Focus on new issues, not ones that were already there.
-      Do you see any issues?
+      Patch lines starting with `-` are deleted.
+      Patch lines starting with `+` are added.
+      Focus on new problems, not ones that were already there.
+      Do you see any problems?
     PROMPT
 
     DEFAULT_LINKED_ISSUES_LIMIT = 5
@@ -45,7 +45,7 @@ module Prreview
     def process
       load_optional_files
       begin
-        fetch_pull_request
+        fetch_pr
         fetch_linked_issues
       rescue Octokit::Unauthorized
         abort 'Error: Invalid GITHUB_TOKEN.'
@@ -113,25 +113,20 @@ module Prreview
       @client = Octokit::Client.new(access_token:, auto_paginate: true)
     end
 
-    def fetch_pull_request
+    def fetch_pr
       puts "Fetching PR ##{@pr_number} for #{@full_repo}"
 
-      @pull_request = @client.pull_request(@full_repo, @pr_number)
-      @comments = @client.issue_comments(@full_repo, @pr_number).map(&:body)
-      @commits = @client.pull_request_commits(@full_repo, @pr_number).map { |c| c.commit.message }
-      @files = @client.pull_request_files(@full_repo, @pr_number).map do |file|
-        {
-          filename: file.filename,
-          patch: file.patch || '(no patch data)',
-          content: @include_content && !skip_file?(file.filename) ? fetch_file_content(file.filename) : '(no content)'
-        }
-      end
+      @pr = @client.pull_request(@full_repo, @pr_number)
+      @pr_comments = @client.issue_comments(@full_repo, @pr_number)
+      @pr_code_comments = @client.pull_request_comments(@full_repo, @pr_number)
+      @pr_commits = @client.pull_request_commits(@full_repo, @pr_number)
+      @pr_files = @client.pull_request_files(@full_repo, @pr_number)
     end
 
     def fetch_file_content(path)
       puts "Fetching #{path}"
 
-      content = @client.contents(@full_repo, path:, ref: @pull_request.head.sha)
+      content = @client.contents(@full_repo, path:, ref: @pr.head.sha)
       decoded = Base64.decode64(content[:content])
       binary?(decoded) ? '(binary file)' : decoded
     rescue Octokit::NotFound
@@ -141,7 +136,7 @@ module Prreview
     def fetch_linked_issues
       @linked_issues = []
 
-      text = [@pull_request.body, *@comments].join("\n")
+      text = [@pr.body, *@pr_comments.map(&:body), *@pr_code_comments.map(&:body)].join("\n")
       queue = extract_refs(text, URL_REGEX)
       seen = Set.new
 
@@ -212,34 +207,78 @@ module Prreview
     def build_xml
       builder = Nokogiri::XML::Builder.new(encoding: 'UTF-8') do |x|
         x.prompt do
-          x.task @prompt
+          x.your_task @prompt
           x.current_date DateTime.now
 
           x.pull_request do
-            x.number @pr_number
-            x.title @pull_request.title
-            x.description @pull_request.body
+            x.details do
+              x.user @pr.user.login
+              x.number @pr_number
+              x.title @pr.title
+              x.body @pr.body
+              x.created_at @pr.created_at
+            end
 
-            @comments.each { |c| x.comment_ c }
-            @commits.each { |m| x.commit m }
+            x.commits do
+              @pr_commits.each do |c|
+                x.commit do
+                  x.commiter c.committer.login
+                  x.message c.commit.message
+                  x.date c.commit.committer.date
+                end
+              end
+            end
 
-            @files.each do |file|
-              x.file do
-                x.filename file[:filename]
-                x.content file[:content]
-                x.patch extract_patch(file)
+            x.comments do
+              @pr_comments.each do |c|
+                x.comment_ do
+                  x.user c.user.login
+                  x.body c.body
+                  x.created_at c.created_at
+                end
+              end
+            end
+
+            x.code_comments do
+              @pr_code_comments.each do |c|
+                x.code_comment do
+                  x.user c.user.login
+                  x.path c.path
+                  x.diff_hunk c.diff_hunk
+                  x.body c.body
+                  x.created_at c.created_at
+                end
+              end
+            end
+
+            x.pull_request_files do
+              @pr_files.each do |f|
+                content = fetch_file_content(f.filename) if @include_content && !skip_file?(f.filename)
+                patch =  extract_patch(f) || '(no patch data)'
+
+                x.file do
+                  x.filename f.filename
+                  x.content(content) if content
+                  x.patch patch
+                end
               end
             end
           end
 
-          @linked_issues.each do |issue|
-            x.linked_issue do
-              x.repo issue[:full_repo]
-              x.number issue[:number]
-              x.title issue[:title]
-              x.description issue[:description]
+          x.linked_issues do
+            @linked_issues.each do |issue|
+              x.linked_issue do
+                x.repo issue[:full_repo]
+                x.number issue[:number]
+                x.title issue[:title]
+                x.description issue[:description]
 
-              issue[:comments].each { |c| x.comment_ c }
+                x.comments do
+                  issue[:comments].each do |c|
+                    x.comment_ c
+                  end
+                end
+              end
             end
           end
 
@@ -254,7 +293,7 @@ module Prreview
             end
           end
 
-          x.task @prompt
+          x.your_task @prompt
         end
       end
 
@@ -262,9 +301,9 @@ module Prreview
     end
 
     def extract_patch(file)
-      return if skip_file?(file[:filename])
+      return if skip_file?(file.filename)
 
-      file[:patch]
+      file.patch
     end
 
     def skip_file?(filename)
