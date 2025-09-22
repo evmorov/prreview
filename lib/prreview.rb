@@ -128,7 +128,9 @@ module Prreview
 
       content = @client.contents(@full_repo, path:, ref: @pr.head.sha)
       decoded = Base64.decode64(content.content)
-      binary?(decoded) ? '(binary file)' : decoded
+      return if binary?(decoded)
+
+      decoded
     rescue Octokit::NotFound
       '(file content not found)'
     end
@@ -240,12 +242,12 @@ module Prreview
             x.pull_request_files do
               @pr_files.each do |f|
                 content = fetch_file_content(f.filename) if @include_content && !skip_file?(f.filename)
-                patch = extract_patch(f) || '(no patch data)'
+                patch = extract_patch(f)
 
                 x.file do
                   x.filename f.filename
-                  x.content(content) if content
-                  x.patch patch
+                  x.content { cdata!(x, content) } if content
+                  x.patch { cdata!(x, patch) } if patch
                 end
               end
             end
@@ -275,7 +277,7 @@ module Prreview
               @optional_file_contents.each do |file|
                 x.file do
                   x.filename file[:filename]
-                  x.content file[:content]
+                  x.content { cdata!(x, file[:content]) }
                 end
               end
             end
@@ -315,6 +317,17 @@ module Prreview
 
     def binary?(string)
       string.include?("\x00")
+    end
+
+    def cdata!(x, str)
+      return unless str
+
+      parts = str.to_s.split(']]>')
+      x.cdata(parts.first || '')
+      parts.drop(1).each do |rest|
+        x.text(']]>')
+        x.cdata rest
+      end
     end
 
     def copy_result_to_clipboard
