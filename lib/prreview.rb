@@ -10,13 +10,7 @@ require 'optparse'
 
 module Prreview
   class CLI
-    DEFAULT_PROMPT = <<~PROMPT
-      Your task is to review this pull request.
-      Patch lines starting with `-` are deleted.
-      Patch lines starting with `+` are added.
-      Focus on new problems, not ones that were already there.
-      Do you see any problems?
-    PROMPT
+    PROMPTS_DIR = File.expand_path('../prompts', __dir__)
 
     DEFAULT_LINKED_ISSUES_LIMIT = 5
 
@@ -59,7 +53,7 @@ module Prreview
     private
 
     def parse_options!
-      @prompt = DEFAULT_PROMPT
+      @prompt = load_prompt(:default)
       @include_content = false
       @linked_issues_limit = DEFAULT_LINKED_ISSUES_LIMIT
       @optional_files = []
@@ -79,6 +73,9 @@ module Prreview
         parser.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_LINKED_ISSUES_LIMIT})") { |v| @linked_issues_limit = v }
         parser.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
           @optional_files = v.split(',').map(&:strip)
+        end
+        parser.on('-c', '--request-context', 'Ask the LLM what extra context it needs before reviewing') do
+          @prompt = load_prompt(:request_context)
         end
         parser.on_tail('-v', '--version', 'Show version') do
           puts VERSION
@@ -333,6 +330,10 @@ module Prreview
     def copy_result_to_clipboard
       Clipboard.copy(@xml)
       puts 'XML prompt generated and copied to your clipboard.'
+    end
+
+    def load_prompt(name)
+      File.read(File.join(PROMPTS_DIR, "#{name}.md"))
     end
   end
 end

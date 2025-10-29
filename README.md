@@ -19,6 +19,7 @@ Or use more options:
 ```
 prreview --help
 prreview https://github.com/owner/repo/pull/123 --all-content --prompt "Are there any security issues?"
+prreview https://github.com/owner/repo/pull/123 --request-context
 ```
 
 Now, just paste the PR details into ChatGPT, Claude, or any LLM for review.
@@ -49,6 +50,7 @@ However, in the future we might add some optional integrations.
 - A well-written PR and linked issue description make a big difference — and are good practice anyway.
 - Run `prreview` after you've thoroughly reviewed the PR. It works best when you understand the changes well.
 - Don't hesitate to try different LLMs or refresh the response to see if something new comes up.
+- Use `--request-context` when you want the LLM to ask for missing files or documentation before reviewing.
 - Use `--all-content` and other extra options — they can significantly improve results for some PRs.
 - After the LLM responds, to potentially uncover more issues:
   - Ask "Anything else?".

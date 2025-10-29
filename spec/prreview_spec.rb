@@ -32,4 +32,23 @@ RSpec.describe Prreview::CLI do
       expect(abort_message).to eq('Error: GITHUB_TOKEN is not set.')
     end
   end
+
+  describe 'when --request-context is used' do
+    around do |example|
+      original_argv = ARGV.dup
+      ARGV.replace(%w[https://github.com/owner/repo/pull/123 --request-context])
+
+      example.run
+
+      ARGV.replace(original_argv)
+    end
+
+    it 'loads the request context prompt' do
+      cli = described_class.allocate
+      cli.send(:parse_options!)
+
+      prompt = cli.instance_variable_get(:@prompt)
+      expect(prompt).to eq(cli.send(:load_prompt, :request_context))
+    end
+  end
 end
