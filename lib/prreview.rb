@@ -60,8 +60,11 @@ module Prreview
 
     def parse_options!
       @prompt = DEFAULT_PROMPT
+      @include_diff = false
       @include_content = false
-      @linked_issues_limit = DEFAULT_LINKED_ISSUES_LIMIT
+      @include_commits = false
+      @include_comments = false
+      @linked_issues_limit = 0
       @optional_files = []
 
       ARGV << '--help' if ARGV.empty?
@@ -75,8 +78,13 @@ module Prreview
         BAN
 
         parser.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
+        parser.on('-d', '--diff', 'Include diff patches') { @include_diff = true }
         parser.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
-        parser.on('-l', '--limit LIMIT', Integer, "Limit number of issues fetched (default: #{DEFAULT_LINKED_ISSUES_LIMIT})") { |v| @linked_issues_limit = v }
+        parser.on('-c', '--commits', 'Include commits') { @include_commits = true }
+        parser.on('-m', '--comments', 'Include PR comments and code comments') { @include_comments = true }
+        parser.on('-l', '--linked-issues [LIMIT]', Integer, "Include linked issues, up to LIMIT (default: #{DEFAULT_LINKED_ISSUES_LIMIT})") do |v|
+          @linked_issues_limit = v || DEFAULT_LINKED_ISSUES_LIMIT
+        end
         parser.on('-o', '--optional PATHS', 'Comma‑separated paths to local files (relative or absolute, e.g. docs/description.md,/etc/hosts)') do |v|
           @optional_files = v.split(',').map(&:strip)
         end
@@ -117,10 +125,18 @@ module Prreview
       puts "Fetching PR ##{@pr_number} for #{@full_repo}"
 
       @pr = @client.pull_request(@full_repo, @pr_number)
-      @pr_comments = @client.issue_comments(@full_repo, @pr_number)
-      @pr_code_comments = @client.pull_request_comments(@full_repo, @pr_number)
-      @pr_commits = @client.pull_request_commits(@full_repo, @pr_number)
-      @pr_files = @client.pull_request_files(@full_repo, @pr_number)
+
+      if @include_comments || include_linked_issues?
+        @pr_comments = @client.issue_comments(@full_repo, @pr_number)
+        @pr_code_comments = @client.pull_request_comments(@full_repo, @pr_number)
+      end
+
+      @pr_commits = @client.pull_request_commits(@full_repo, @pr_number) if @include_commits
+      @pr_files = @client.pull_request_files(@full_repo, @pr_number) if @include_diff || @include_content
+    end
+
+    def include_linked_issues?
+      @linked_issues_limit.positive?
     end
 
     def fetch_file_content(path)
@@ -137,6 +153,7 @@ module Prreview
 
     def fetch_linked_issues
       @linked_issues = []
+      return unless include_linked_issues?
 
       text = [@pr.body, *@pr_comments.map(&:body), *@pr_code_comments.map(&:body)].join("\n")
       queue = extract_refs(text, URL_REGEX)
@@ -211,60 +228,68 @@ module Prreview
           x.pull_request do
             build_issue(x, @pr)
 
-            x.commits do
-              @pr_commits.each do |c|
-                x.commit do
-                  x.commiter c.committer&.login
-                  x.message c.commit.message
-                  x.date c.commit.committer&.date
+            if @include_commits
+              x.commits do
+                @pr_commits.each do |c|
+                  x.commit do
+                    x.commiter c.committer&.login
+                    x.message c.commit.message
+                    x.date c.commit.committer&.date
+                  end
                 end
               end
             end
 
-            x.comments do
-              @pr_comments.each do |c|
-                x.comment_ do
-                  build_comment(x, c)
+            if @include_comments
+              x.comments do
+                @pr_comments.each do |c|
+                  x.comment_ do
+                    build_comment(x, c)
+                  end
+                end
+              end
+
+              x.code_comments do
+                @pr_code_comments.each do |c|
+                  x.code_comment do
+                    build_comment(x, c)
+                    x.path c.path
+                    x.line c.line
+                  end
                 end
               end
             end
 
-            x.code_comments do
-              @pr_code_comments.each do |c|
-                x.code_comment do
-                  build_comment(x, c)
-                  x.path c.path
-                  x.line c.line
-                end
-              end
-            end
+            if @pr_files
+              x.pull_request_files do
+                @pr_files.each do |f|
+                  content = fetch_file_content(f.filename) if @include_content && !skip_file?(f.filename)
+                  patch = extract_patch(f) if @include_diff
 
-            x.pull_request_files do
-              @pr_files.each do |f|
-                content = fetch_file_content(f.filename) if @include_content && !skip_file?(f.filename)
-                patch = extract_patch(f)
-
-                x.file do
-                  x.filename f.filename
-                  x.content { cdata!(x, content) } if content
-                  x.patch { cdata!(x, patch) } if patch
+                  x.file do
+                    x.filename f.filename
+                    x.content { cdata!(x, content) } if content
+                    x.patch { cdata!(x, patch) } if patch
+                  end
                 end
               end
             end
           end
 
-          x.linked_issues do
-            @linked_issues.each do |linked_issue|
-              issue = linked_issue[:issue]
-              comments = linked_issue[:comments]
+          unless @linked_issues.empty?
+            x.linked_issues do
+              @linked_issues.each do |linked_issue|
+                issue = linked_issue[:issue]
+                comments = linked_issue[:comments]
 
-              x.linked_issue do
-                build_issue(x, issue)
+                x.linked_issue do
+                  build_issue(x, issue)
 
-                x.comments do
-                  comments.each do |c|
-                    x.comment_ do
-                      build_comment(x, c)
+                  x.comments do
+                    comments.each do |c|
+                      x.comment_ do
+                        build_comment(x, c)
+                      end
                     end
                   end
                 end
