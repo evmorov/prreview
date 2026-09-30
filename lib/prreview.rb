@@ -33,6 +33,24 @@ module Prreview
       (?<number>\d+)
     }x
 
+    # REST API doesn't expose review thread resolution, so use GraphQL
+    REVIEW_THREADS_QUERY = <<~GRAPHQL
+      query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            reviewThreads(first: 100, after: $cursor) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                isResolved
+                isOutdated
+                comments(first: 100) { nodes { databaseId } }
+              }
+            }
+          }
+        }
+      }
+    GRAPHQL
+
     def initialize
       parse_options!
       parse_url!
@@ -135,8 +153,36 @@ module Prreview
         @pr_code_comments = @client.pull_request_comments(@full_repo, @pr_number)
       end
 
+      fetch_review_thread_states if @include_comments
+
       @pr_commits = @client.pull_request_commits(@full_repo, @pr_number) if @include_commits
       @pr_files = @client.pull_request_files(@full_repo, @pr_number) if @include_diff || @include_content
+    end
+
+    # Maps code comment id => { resolved:, outdated: }
+    def fetch_review_thread_states
+      @review_thread_states = {}
+      cursor = nil
+
+      loop do
+        variables = { owner: @owner, repo: @repo, number: @pr_number, cursor: }
+        response = @client.post('/graphql', { query: REVIEW_THREADS_QUERY, variables: }.to_json)
+
+        if response[:errors]
+          warn "Could not fetch review thread states: #{response[:errors].map { |e| e[:message] }.join(', ')}"
+          break
+        end
+
+        threads = response[:data][:repository][:pullRequest][:reviewThreads]
+        threads[:nodes].each do |thread|
+          thread[:comments][:nodes].each do |comment|
+            @review_thread_states[comment[:databaseId]] = { resolved: thread[:isResolved], outdated: thread[:isOutdated] }
+          end
+        end
+        break unless threads[:pageInfo][:hasNextPage]
+
+        cursor = threads[:pageInfo][:endCursor]
+      end
     end
 
     def include_linked_issues?
@@ -255,10 +301,14 @@ module Prreview
 
               x.code_comments do
                 @pr_code_comments.each do |c|
+                  state = @review_thread_states.fetch(c.id, {})
+
                   x.code_comment do
                     build_comment(x, c)
                     x.path c.path
                     x.line c.line
+                    x.resolved state[:resolved] ? 'true' : 'false'
+                    x.outdated 'true' if state[:outdated]
                   end
                 end
               end
