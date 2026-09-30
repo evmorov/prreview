@@ -19,7 +19,10 @@ Or use more options:
 ```
 prreview --help
 prreview https://github.com/owner/repo/pull/123 --diff --comments --linked-issues --prompt "Are there any security issues?"
+prreview https://github.com/owner/repo/pull/123 --prompt ~/my-review-prompt.txt
 ```
+
+`--prompt` accepts either the prompt text or a path to a file containing it.
 
 Now, just paste the PR details into ChatGPT, Claude, or any LLM for review.
 

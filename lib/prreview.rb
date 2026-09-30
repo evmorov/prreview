@@ -74,7 +74,7 @@ module Prreview
 
         BAN
 
-        parser.on('-p', '--prompt PROMPT', 'Custom LLM prompt') { |v| @prompt = v }
+        parser.on('-p', '--prompt PROMPT', 'Custom LLM prompt, or path to a file containing it') { |v| @prompt = read_prompt(v) }
         parser.on('-d', '--diff', 'Include diff patches') { @include_diff = true }
         parser.on('-a', '--all-content', 'Include full file contents') { @include_content = true }
         parser.on('-c', '--commits', 'Include commits') { @include_commits = true }
@@ -97,6 +97,13 @@ module Prreview
       end
 
       @url = ARGV.first
+    end
+
+    def read_prompt(value)
+      path = File.expand_path(value)
+      File.file?(path) ? File.read(path) : value
+    rescue ArgumentError # e.g. "~unknown_user" in plain-text prompt
+      value
     end
 
     def parse_url!
