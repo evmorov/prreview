@@ -33,6 +33,9 @@ module Prreview
       (?<number>\d+)
     }x
 
+    # GitHub hides HTML comments (e.g. PR template hints), an unclosed one runs to the end
+    HTML_COMMENT_REGEX = /<!--.*?(?:-->|\z)/m
+
     # REST API doesn't expose review thread resolution, so use GraphQL
     REVIEW_THREADS_QUERY = <<~GRAPHQL
       query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
@@ -245,7 +248,7 @@ module Prreview
     end
 
     def extract_refs(text, pattern, source:)
-      text.to_enum(:scan, pattern).filter_map do
+      text.gsub(HTML_COMMENT_REGEX, '').to_enum(:scan, pattern).filter_map do
         m = Regexp.last_match
         next unless m[:number]
 

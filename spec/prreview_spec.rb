@@ -33,3 +33,30 @@ RSpec.describe Prreview::CLI do
     end
   end
 end
+
+RSpec.describe Prreview::CLI, '#extract_refs' do
+  subject(:cli) { Prreview::CLI.allocate }
+
+  let(:source) { { owner: 'owner', repo: 'repo', name: 'owner/repo#1' } }
+
+  def names(text)
+    cli.send(:extract_refs, text, Prreview::CLI::URL_REGEX, source:).map { |ref| ref[:name] }
+  end
+
+  it 'ignores references inside HTML comments' do
+    text = <<~MD
+      Fixes #2
+      <!-- Link the issue, e.g. #3 or other/repo#4 -->
+      <!--
+        https://github.com/other/repo/issues/5
+      -->
+      See other/repo#6
+    MD
+
+    expect(names(text)).to eq(%w[owner/repo#2 other/repo#6])
+  end
+
+  it 'ignores references in an unclosed HTML comment' do
+    expect(names("Fixes #2\n<!-- #3")).to eq(%w[owner/repo#2])
+  end
+end
