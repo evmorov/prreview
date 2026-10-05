@@ -206,8 +206,9 @@ module Prreview
       return unless include_linked_issues?
 
       text = [@pr.body, *@pr_comments.map(&:body), *@pr_code_comments.map(&:body)].join("\n")
-      queue = extract_refs(text, URL_REGEX)
-      seen = Set.new
+      queue = extract_refs(text, URL_REGEX, source: { owner: @owner, repo: @repo, name: "#{@full_repo}##{@pr_number}" })
+      seen = Set["#{@full_repo}##{@pr_number}".downcase]
+      seen_urls = Set[@pr.html_url]
 
       until queue.empty? || @linked_issues.length >= @linked_issues_limit
         ref = queue.shift
@@ -219,10 +220,13 @@ module Prreview
         linked_issue = fetch_linked_issue(ref)
         next unless linked_issue
 
+        # Different refs can resolve to the same issue (e.g. transferred or renamed repos)
+        next unless seen_urls.add?(linked_issue[:issue].html_url)
+
         @linked_issues << linked_issue
 
         new_text = [linked_issue[:issue].body, *linked_issue[:comments].map(&:body)].join("\n")
-        new_refs = extract_refs(new_text, URL_REGEX).reject { |nref| seen.include?(nref[:key]) }
+        new_refs = extract_refs(new_text, URL_REGEX, source: ref).reject { |nref| seen.include?(nref[:key]) }
         queue.concat(new_refs)
       end
 
@@ -240,17 +244,17 @@ module Prreview
       end
     end
 
-    def extract_refs(text, pattern)
+    def extract_refs(text, pattern, source:)
       text.to_enum(:scan, pattern).filter_map do
         m = Regexp.last_match
         next unless m[:number]
 
-        owner = m[:owner] || @owner
-        repo = m[:repo] || @repo
+        owner = m[:owner] || source[:owner]
+        repo = m[:repo] || source[:repo]
         number = m[:number].to_i
-        key = "#{owner}/#{repo}##{number}"
+        name = "#{owner}/#{repo}##{number}"
 
-        { owner:, repo:, number:, key: }
+        { owner:, repo:, number:, name:, key: name.downcase, source: }
       end
     end
 
@@ -258,7 +262,7 @@ module Prreview
       issue_path = "#{ref[:owner]}/#{ref[:repo]}"
       number = ref[:number]
 
-      puts "Fetching linked issue ##{number} for #{issue_path}"
+      puts "Fetching linked issue ##{number} for #{issue_path} (linked from #{ref[:source][:name]})"
 
       {
         issue: @client.issue(issue_path, number),
