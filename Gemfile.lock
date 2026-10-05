@@ -41,6 +41,8 @@ GEM
     method_source (1.1.0)
     net-http (0.6.0)
       uri
+    nokogiri (1.18.10-aarch64-linux-gnu)
+      racc (~> 1.4)
     nokogiri (1.18.10-arm64-darwin)
       racc (~> 1.4)
     nokogiri (1.18.10-x86_64-darwin)
@@ -114,6 +116,7 @@ GEM
     uri (1.0.3)
 
 PLATFORMS
+  aarch64-linux
   arm64-darwin-24
   arm64-darwin-25
   x86_64-darwin-24
